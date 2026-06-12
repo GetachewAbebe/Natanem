@@ -1,3 +1,5 @@
+import path from "path";
+
 import type { CollectionConfig } from "payload";
 
 export const Media: CollectionConfig = {
@@ -6,7 +8,10 @@ export const Media: CollectionConfig = {
     read: () => true,
   },
   upload: {
-    staticDir: "media",
+    // Anchored to the process working directory so uploads land in the same
+    // place in dev and in the standalone production bundle, where deploys
+    // are configured to never overwrite it.
+    staticDir: path.resolve(process.cwd(), "media"),
     imageSizes: [
       {
         name: "card",

@@ -1,0 +1,70 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allows manual deploys from the Actions tab
+
+# Never run two deploys at once; a new push waits for the current deploy.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (standalone bundle)
+        run: npm run build
+        env:
+          STANDALONE: "1"
+          # Build-time placeholders only. The real values are set as
+          # environment variables in cPanel's "Setup Node.js App" and are
+          # read at runtime — they are never baked into the bundle.
+          PAYLOAD_SECRET: build-time-placeholder
+          DATABASE_URI: file:./payload.db
+
+      - name: Assemble deploy bundle
+        run: |
+          mkdir -p deploy
+          cp -r .next/standalone/. deploy/
+          mkdir -p deploy/.next/static deploy/public
+          cp -r .next/static/. deploy/.next/static/
+          cp -r public/. deploy/public/
+          rm -f deploy/payload.db deploy/.env
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.CPANEL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.CPANEL_SSH_PORT }}" -H "${{ secrets.CPANEL_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload to server
+        run: |
+          rsync -az --delete \
+            --exclude 'payload.db' \
+            --exclude 'payload.db-*' \
+            --exclude 'media/' \
+            --exclude 'tmp/' \
+            --exclude '.env' \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.CPANEL_SSH_PORT }}" \
+            deploy/ "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}:~/natanem-web/"
+
+      - name: Restart application
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.CPANEL_SSH_PORT }}" \
+            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}" \
+            "mkdir -p ~/natanem-web/tmp && touch ~/natanem-web/tmp/restart.txt"
