@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  /* Brand palette: deep navy-charcoal "ink" + safety-amber accent */
+  --color-ink-950: #0a1120;
+  --color-ink-900: #101a2e;
+  --color-ink-800: #1a2740;
+  --color-ink-700: #2a3a58;
+  --color-ink-600: #3e5174;
+  --color-ink-100: #e3e9f2;
+  --color-ink-50: #f3f6fa;
+
+  --color-amber-brand: #f5a623;
+  --color-amber-deep: #d98b0f;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-oswald), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: #ffffff;
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+}
+
+/* Subtle blueprint-style grid used on dark hero/CTA panels */
+.bg-blueprint {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Diagonal hazard-stripe accent bar */
+.bg-hazard {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--color-amber-brand) 0 14px,
+    var(--color-ink-950) 14px 28px
+  );
+}
