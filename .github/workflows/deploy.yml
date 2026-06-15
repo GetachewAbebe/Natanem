@@ -49,27 +49,43 @@ jobs:
           rm -f deploy/payload.db deploy/.env
 
       - name: Set up SSH
+        env:
+          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
         run: |
-          mkdir -p ~/.ssh
-          # The secret holds the private key base64-encoded on a single line,
-          # which survives any copy-paste. Decode it back into a key file.
-          echo "${{ secrets.CPANEL_SSH_KEY }}" | tr -d ' \r\n' | base64 -d > ~/.ssh/deploy_key
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          # The CPANEL_SSH_KEY secret may be stored base64-encoded (single line)
+          # or as the raw private key. Accept either.
+          printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' > /tmp/key_in
+          if base64 -d /tmp/key_in > ~/.ssh/deploy_key 2>/dev/null \
+             && ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
+            echo "Loaded base64-encoded key."
+          else
+            cp /tmp/key_in ~/.ssh/deploy_key
+            echo "Using raw key."
+          fi
+          rm -f /tmp/key_in
           chmod 600 ~/.ssh/deploy_key
-          ssh-keygen -y -P "" -f ~/.ssh/deploy_key > /dev/null || { echo "::error::CPANEL_SSH_KEY secret does not decode to a valid private key"; exit 1; }
-          ssh-keyscan -p "${{ secrets.CPANEL_SSH_PORT }}" -H "${{ secrets.CPANEL_SSH_HOST }}" >> ~/.ssh/known_hosts
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
+            echo "::error::CPANEL_SSH_KEY is not a valid private key (tried base64 and raw). Re-add the secret."
+            exit 1
+          fi
+          # Best effort — the SSH steps also auto-accept the host key.
+          ssh-keyscan -p "$CPANEL_SSH_PORT" "$CPANEL_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Upload to server
         # The server has no rsync, so stream a tar archive over SSH instead.
         # Only build artifacts are removed and re-extracted; the live content
         # (payload.db, media/, tmp/) is never part of the archive or the rm.
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
           rm -rf deploy/media deploy/tmp
           $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next node_modules public server.js package.json"
           tar czf - -C deploy . | $SSH "tar xzf - -C ~/natanem-web"
 
       - name: Restart application
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${{ secrets.CPANEL_SSH_PORT }}" \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p "${{ secrets.CPANEL_SSH_PORT }}" \
             "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}" \
             "mkdir -p ~/natanem-web/tmp && touch ~/natanem-web/tmp/restart.txt"
