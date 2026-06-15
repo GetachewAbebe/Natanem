@@ -27,6 +27,15 @@ export const HomePage: GlobalConfig = {
         { name: "description", type: "textarea", required: true },
         { name: "primaryCtaLabel", type: "text", required: true, label: "Primary button text" },
         { name: "secondaryCtaLabel", type: "text", required: true, label: "Secondary button text" },
+        {
+          name: "backgroundImage",
+          type: "upload",
+          relationTo: "media",
+          admin: {
+            description:
+              "Optional hero background photo (a wide, high-quality project image works best). Leave empty for the dark blueprint pattern.",
+          },
+        },
       ],
     },
     {

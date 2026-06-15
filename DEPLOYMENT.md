@@ -58,6 +58,20 @@ Then add these **environment variables** in the same screen:
 | `DATABASE_URI`   | `file:./payload.db`                                          |
 | `NODE_ENV`       | `production`                                                 |
 
+**Optional — email notifications for contact-form inquiries.** Create a
+mailbox in cPanel → **Email Accounts** (e.g. `info@natanemengineering.com`),
+then add these too so every inquiry is emailed to your team (without them,
+inquiries are still saved in the admin panel — you just have to check it):
+
+| Name                | Value                                  |
+| ------------------- | -------------------------------------- |
+| `SMTP_HOST`         | `mail.natanemengineering.com`          |
+| `SMTP_PORT`         | `465`                                  |
+| `SMTP_USER`         | the full mailbox address               |
+| `SMTP_PASS`         | the mailbox password                   |
+| `SMTP_FROM`         | the full mailbox address               |
+| `CONTACT_NOTIFY_TO` | where inquiries are sent (your inbox)  |
+
 Click **Create**, then **Restart**.
 
 > Do NOT click "Run NPM Install" — the deploy bundle already contains

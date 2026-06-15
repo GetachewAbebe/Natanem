@@ -40,6 +40,14 @@ export default function ContactForm({ texts, services }: Props) {
           </p>
         </div>
       )}
+      {state.status === "rateLimited" && (
+        <div className="border-l-4 border-amber-deep bg-amber-50 p-4 sm:col-span-2">
+          <p className="text-sm text-ink-800">
+            You have sent several inquiries already. Please wait a few minutes
+            before sending another, or contact us directly by phone or email.
+          </p>
+        </div>
+      )}
       {/* Honeypot field — hidden from real visitors, catches naive bots. */}
       <div className="hidden" aria-hidden="true">
         <label htmlFor="company">Company</label>

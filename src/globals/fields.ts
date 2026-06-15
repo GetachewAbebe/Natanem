@@ -9,6 +9,15 @@ export const heroGroup = (overrides: Partial<{ description: boolean }> = {}): Fi
     ...(overrides.description === false
       ? []
       : [{ name: "description", type: "textarea", required: true } as Field]),
+    {
+      name: "backgroundImage",
+      type: "upload",
+      relationTo: "media",
+      admin: {
+        description:
+          "Optional background photo behind this page's header. Leave empty for the dark blueprint pattern.",
+      },
+    },
   ],
 });
 

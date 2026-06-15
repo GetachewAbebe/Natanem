@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
 import { getProjects, getProjectsPage } from "@/lib/content";
+import { resolveImage } from "@/lib/image";
 import ProjectsGrid from "./ProjectsGrid";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,6 +19,7 @@ export default async function ProjectsPage() {
         eyebrow={page.hero.eyebrow}
         title={page.hero.title}
         description={page.hero.description}
+        backgroundImage={resolveImage(page.hero.backgroundImage)}
       />
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">

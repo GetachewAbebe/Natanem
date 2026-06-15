@@ -35,6 +35,15 @@ export const Services: CollectionConfig = {
       required: true,
     },
     {
+      name: "image",
+      type: "upload",
+      relationTo: "media",
+      admin: {
+        description:
+          "Photo shown alongside this service. Leave empty for a styled placeholder.",
+      },
+    },
+    {
       name: "details",
       type: "array",
       admin: {

@@ -60,6 +60,15 @@ export const Projects: CollectionConfig = {
       required: true,
     },
     {
+      name: "coverImage",
+      type: "upload",
+      relationTo: "media",
+      admin: {
+        description:
+          "Main project photo shown on the card. Leave empty for a styled placeholder.",
+      },
+    },
+    {
       name: "stats",
       type: "array",
       maxRows: 3,

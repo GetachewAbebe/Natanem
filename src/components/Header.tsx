@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -19,9 +20,14 @@ export default function Header({ brand, navLinks }: Props) {
     <header className="sticky top-0 z-50 bg-ink-950 text-white shadow-lg">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-          <span className="flex h-10 w-10 items-center justify-center bg-amber-brand font-display text-xl font-bold text-ink-950">
-            {brand.name.charAt(0)}
-          </span>
+          <Image
+            src="/logo-mark-white.png"
+            alt={`${brand.name} ${brand.accent}`}
+            width={430}
+            height={316}
+            priority
+            className="h-9 w-auto"
+          />
           <span className="font-display text-xl font-semibold uppercase tracking-wider">
             {brand.name} <span className="text-amber-brand">{brand.accent}</span>
           </span>

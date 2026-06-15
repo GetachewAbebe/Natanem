@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 import type { SiteSetting } from "@/payload-types";
@@ -17,14 +18,13 @@ export default function Footer({ brand, navLinks, contact, footer }: Props) {
       <div className="bg-hazard h-2" />
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="md:col-span-2">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center bg-amber-brand font-display text-lg font-bold text-ink-950">
-              {brand.name.charAt(0)}
-            </span>
-            <span className="font-display text-lg font-semibold uppercase tracking-wider text-white">
-              {brand.name} <span className="text-amber-brand">{brand.accent}</span>
-            </span>
-          </div>
+          <Image
+            src="/logo-full-white.png"
+            alt={`${brand.name} ${brand.accent}`}
+            width={940}
+            height={569}
+            className="h-16 w-auto"
+          />
           <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-100/80">
             {footer.description}
           </p>

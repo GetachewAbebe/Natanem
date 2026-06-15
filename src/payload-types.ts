@@ -159,6 +159,10 @@ export interface Project {
   status: 'Completed' | 'Ongoing';
   description: string;
   /**
+   * Main project photo shown on the card. Leave empty for a styled placeholder.
+   */
+  coverImage?: (number | null) | Media;
+  /**
    * Up to three key figures shown on the project card.
    */
   stats?:
@@ -172,55 +176,6 @@ export interface Project {
    * Lower numbers appear first.
    */
   displayOrder: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Service lines shown on the Services page, the homepage, and the contact form's service dropdown.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "services".
- */
-export interface Service {
-  id: number;
-  title: string;
-  /**
-   * Used for direct links, e.g. /services#my-service.
-   */
-  slug: string;
-  summary: string;
-  /**
-   * Bullet points listed under the service.
-   */
-  details?:
-    | {
-        item: string;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * Lower numbers appear first.
-   */
-  displayOrder: number;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Inquiries sent through the website's contact form.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "contact-submissions".
- */
-export interface ContactSubmission {
-  id: number;
-  name: string;
-  email: string;
-  phone?: string | null;
-  /**
-   * Service the visitor selected in the form.
-   */
-  service?: string | null;
-  message: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -263,6 +218,59 @@ export interface Media {
       filename?: string | null;
     };
   };
+}
+/**
+ * Service lines shown on the Services page, the homepage, and the contact form's service dropdown.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "services".
+ */
+export interface Service {
+  id: number;
+  title: string;
+  /**
+   * Used for direct links, e.g. /services#my-service.
+   */
+  slug: string;
+  summary: string;
+  /**
+   * Photo shown alongside this service. Leave empty for a styled placeholder.
+   */
+  image?: (number | null) | Media;
+  /**
+   * Bullet points listed under the service.
+   */
+  details?:
+    | {
+        item: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Lower numbers appear first.
+   */
+  displayOrder: number;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Inquiries sent through the website's contact form.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "contact-submissions".
+ */
+export interface ContactSubmission {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+  /**
+   * Service the visitor selected in the form.
+   */
+  service?: string | null;
+  message: string;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -388,6 +396,7 @@ export interface ProjectsSelect<T extends boolean = true> {
   year?: T;
   status?: T;
   description?: T;
+  coverImage?: T;
   stats?:
     | T
     | {
@@ -407,6 +416,7 @@ export interface ServicesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   summary?: T;
+  image?: T;
   details?:
     | T
     | {
@@ -627,6 +637,10 @@ export interface HomePage {
     description: string;
     primaryCtaLabel: string;
     secondaryCtaLabel: string;
+    /**
+     * Optional hero background photo (a wide, high-quality project image works best). Leave empty for the dark blueprint pattern.
+     */
+    backgroundImage?: (number | null) | Media;
   };
   servicesSection: {
     eyebrow: string;
@@ -675,6 +689,10 @@ export interface AboutPage {
     eyebrow: string;
     title: string;
     description: string;
+    /**
+     * Optional background photo behind this page's header. Leave empty for the dark blueprint pattern.
+     */
+    backgroundImage?: (number | null) | Media;
   };
   story: {
     eyebrow: string;
@@ -740,6 +758,10 @@ export interface ServicesPage {
     eyebrow: string;
     title: string;
     description: string;
+    /**
+     * Optional background photo behind this page's header. Leave empty for the dark blueprint pattern.
+     */
+    backgroundImage?: (number | null) | Media;
   };
   cta: {
     title: string;
@@ -766,6 +788,10 @@ export interface ProjectsPage {
     eyebrow: string;
     title: string;
     description: string;
+    /**
+     * Optional background photo behind this page's header. Leave empty for the dark blueprint pattern.
+     */
+    backgroundImage?: (number | null) | Media;
   };
   cta: {
     title: string;
@@ -791,6 +817,10 @@ export interface ContactPage {
     eyebrow: string;
     title: string;
     description: string;
+    /**
+     * Optional background photo behind this page's header. Leave empty for the dark blueprint pattern.
+     */
+    backgroundImage?: (number | null) | Media;
   };
   /**
    * Headings for the contact details column. The values themselves (address, phone…) are edited in Site Settings.
@@ -802,9 +832,13 @@ export interface ContactPage {
     hours: string;
   };
   /**
-   * Text shown in the map box until a real map is embedded.
+   * Caption shown beneath the office-location map.
    */
   mapPlaceholder: string;
+  /**
+   * Paste a map 'embed' URL to show your exact office location. In Google Maps: Share → Embed a map → copy the src="…" link. Leave empty to show a default Addis Ababa map.
+   */
+  mapEmbedUrl?: string | null;
   formSection: {
     title: string;
     intro: string;
@@ -901,6 +935,7 @@ export interface HomePageSelect<T extends boolean = true> {
         description?: T;
         primaryCtaLabel?: T;
         secondaryCtaLabel?: T;
+        backgroundImage?: T;
       };
   servicesSection?:
     | T
@@ -958,6 +993,7 @@ export interface AboutPageSelect<T extends boolean = true> {
         eyebrow?: T;
         title?: T;
         description?: T;
+        backgroundImage?: T;
       };
   story?:
     | T
@@ -1036,6 +1072,7 @@ export interface ServicesPageSelect<T extends boolean = true> {
         eyebrow?: T;
         title?: T;
         description?: T;
+        backgroundImage?: T;
       };
   cta?:
     | T
@@ -1065,6 +1102,7 @@ export interface ProjectsPageSelect<T extends boolean = true> {
         eyebrow?: T;
         title?: T;
         description?: T;
+        backgroundImage?: T;
       };
   cta?:
     | T
@@ -1093,6 +1131,7 @@ export interface ContactPageSelect<T extends boolean = true> {
         eyebrow?: T;
         title?: T;
         description?: T;
+        backgroundImage?: T;
       };
   detailLabels?:
     | T
@@ -1103,6 +1142,7 @@ export interface ContactPageSelect<T extends boolean = true> {
         hours?: T;
       };
   mapPlaceholder?: T;
+  mapEmbedUrl?: T;
   formSection?:
     | T
     | {

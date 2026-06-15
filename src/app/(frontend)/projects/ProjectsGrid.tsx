@@ -1,7 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
+import Reveal from "@/components/Reveal";
+import { resolveImage } from "@/lib/image";
 import type { Project } from "@/payload-types";
 
 const categories = ["All", "Residential", "Commercial", "Infrastructure"] as const;
@@ -38,17 +41,31 @@ export default function ProjectsGrid({ projects }: { projects: Project[] }) {
       </div>
 
       <div className="mt-10 grid gap-8 md:grid-cols-2">
-        {visible.map((project) => (
+        {visible.map((project, idx) => {
+          const image = resolveImage(project.coverImage);
+          return (
+          <Reveal key={project.slug} delay={(idx % 2) * 120}>
           <article
-            key={project.slug}
             id={project.slug}
-            className="scroll-mt-24 overflow-hidden border border-ink-100 bg-white shadow-sm"
+            className="group h-full scroll-mt-24 overflow-hidden border border-ink-100 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
           >
             <div
-              className={`bg-blueprint relative flex h-52 items-end bg-gradient-to-br p-5 ${categoryGradients[project.category]}`}
+              className={`bg-blueprint relative flex h-52 items-end overflow-hidden bg-gradient-to-br p-5 ${categoryGradients[project.category]}`}
             >
+              {image && (
+                <>
+                  <Image
+                    src={image.src}
+                    alt={image.alt}
+                    fill
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink-950/85 via-ink-950/30 to-transparent" />
+                </>
+              )}
               <span
-                className={`absolute right-0 top-5 px-3 py-1 text-xs font-bold uppercase tracking-wide ${
+                className={`absolute right-0 top-5 z-10 px-3 py-1 text-xs font-bold uppercase tracking-wide ${
                   project.status === "Ongoing"
                     ? "bg-amber-brand text-ink-950"
                     : "bg-white text-ink-950"
@@ -56,7 +73,7 @@ export default function ProjectsGrid({ projects }: { projects: Project[] }) {
               >
                 {project.status}
               </span>
-              <div>
+              <div className="relative z-10">
                 <span className="font-display text-sm uppercase tracking-widest text-amber-brand">
                   {project.category}
                 </span>
@@ -84,7 +101,9 @@ export default function ProjectsGrid({ projects }: { projects: Project[] }) {
               </dl>
             </div>
           </article>
-        ))}
+          </Reveal>
+          );
+        })}
       </div>
     </div>
   );

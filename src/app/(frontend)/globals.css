@@ -39,3 +39,25 @@ body {
     var(--color-ink-950) 14px 28px
   );
 }
+
+/* Slow cinematic zoom for hero background photography */
+@keyframes kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
+.animate-kenburns {
+  animation: kenburns 24s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-kenburns {
+    animation: none;
+  }
+}

@@ -484,7 +484,7 @@ const seedGlobals = async (payload: Payload) => {
         email: "Email",
         hours: "Working Hours",
       },
-      mapPlaceholder: "Map placeholder — embed office location here",
+      mapPlaceholder: "Our Office — Addis Ababa, Ethiopia",
       formSection: {
         title: "Request a Quote",
         intro:

@@ -29,7 +29,15 @@ export const ContactPage: GlobalConfig = {
       name: "mapPlaceholder",
       type: "text",
       required: true,
-      admin: { description: "Text shown in the map box until a real map is embedded." },
+      admin: { description: "Caption shown beneath the office-location map." },
+    },
+    {
+      name: "mapEmbedUrl",
+      type: "text",
+      admin: {
+        description:
+          "Paste a map 'embed' URL to show your exact office location. In Google Maps: Share → Embed a map → copy the src=\"…\" link. Leave empty to show a default Addis Ababa map.",
+      },
     },
     {
       name: "formSection",
