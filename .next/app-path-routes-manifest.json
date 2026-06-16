@@ -1,0 +1,13 @@
+{
+  "/(frontend)/about/page": "/about",
+  "/(frontend)/contact/page": "/contact",
+  "/(frontend)/page": "/",
+  "/(frontend)/projects/page": "/projects",
+  "/(frontend)/services/page": "/services",
+  "/(payload)/admin/[[...segments]]/page": "/admin/[[...segments]]",
+  "/(payload)/api/[...slug]/route": "/api/[...slug]",
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/apple-icon.png/route": "/apple-icon.png",
+  "/icon.png/route": "/icon.png"
+}

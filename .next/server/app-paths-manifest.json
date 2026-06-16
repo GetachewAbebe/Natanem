@@ -1,0 +1,13 @@
+{
+  "/(frontend)/about/page": "app/(frontend)/about/page.js",
+  "/(frontend)/contact/page": "app/(frontend)/contact/page.js",
+  "/(frontend)/page": "app/(frontend)/page.js",
+  "/(frontend)/projects/page": "app/(frontend)/projects/page.js",
+  "/(frontend)/services/page": "app/(frontend)/services/page.js",
+  "/(payload)/admin/[[...segments]]/page": "app/(payload)/admin/[[...segments]]/page.js",
+  "/(payload)/api/[...slug]/route": "app/(payload)/api/[...slug]/route.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/apple-icon.png/route": "app/apple-icon.png/route.js",
+  "/icon.png/route": "app/icon.png/route.js"
+}
