@@ -23,6 +23,22 @@ jobs:
           node-version: 22
           cache: npm
 
+      # TEMPORARY diagnostic — prints only the secret's length and format
+      # category (never the key itself). Remove once the secret is confirmed.
+      - name: Diagnose secret
+        env:
+          K: ${{ secrets.CPANEL_SSH_KEY }}
+        run: |
+          echo "secret raw length: ${#K}"
+          case "$K" in
+            b3BlbnNz*) echo "format: base64 of an OpenSSH key (expected) - GOOD" ;;
+            "-----BEGIN"*) echo "format: raw PEM key" ;;
+            "") echo "format: EMPTY — the workflow is reading a different/empty secret (scope issue)" ;;
+            *) echo "format: unexpected (neither base64-magic nor PEM header)" ;;
+          esac
+          DEC=$(printf '%s' "$K" | tr -d '\r\n' | base64 -d 2>/dev/null | wc -c)
+          echo "base64-decoded byte count: $DEC (a valid key decodes to ~3381)"
+
       - name: Install dependencies
         run: npm ci
 
@@ -43,6 +59,9 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r .next/standalone/. deploy/
+          # cPanel/CloudLinux manages node_modules as a symlink into its
+          # virtual environment — never ship a real one.
+          rm -rf deploy/node_modules
           mkdir -p deploy/.next/static deploy/public
           cp -r .next/static/. deploy/.next/static/
           cp -r public/. deploy/public/
@@ -75,17 +94,33 @@ jobs:
           ssh-keyscan -p "$CPANEL_SSH_PORT" "$CPANEL_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Upload to server
-        # The server has no rsync, so stream a tar archive over SSH instead.
-        # Only build artifacts are removed and re-extracted; the live content
-        # (payload.db, media/, tmp/) is never part of the archive or the rm.
+        # The server has no rsync, so stream a tar archive over SSH. Only code
+        # artifacts (.next, public, server.js, package.json) are replaced.
+        # node_modules (a cPanel-managed symlink), payload.db, media/ and tmp/
+        # are never removed or shipped — so live content is always preserved.
         run: |
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
           rm -rf deploy/media deploy/tmp
-          $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next node_modules public server.js package.json"
+          $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next public server.js"
           tar czf - -C deploy . | $SSH "tar xzf - -C ~/natanem-web"
 
-      - name: Restart application
+      - name: Install deps & restart
+        # Ensure the CloudLinux node_modules symlink exists, install production
+        # deps (correct Linux native binaries) into the managed venv, restart.
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p "${{ secrets.CPANEL_SSH_PORT }}" \
-            "${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}" \
-            "mkdir -p ~/natanem-web/tmp && touch ~/natanem-web/tmp/restart.txt"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
+          $SSH '
+            set -e
+            APP="$HOME/natanem-web"
+            VER=$(ls "$HOME/nodevenv/natanem-web/" | head -1)
+            VENV_MODULES="$HOME/nodevenv/natanem-web/$VER/lib/node_modules"
+            if [ ! -L "$APP/node_modules" ]; then
+              rm -rf "$APP/node_modules"
+              mkdir -p "$VENV_MODULES"
+              ln -sfn "$VENV_MODULES" "$APP/node_modules"
+            fi
+            source "$HOME/nodevenv/natanem-web/$VER/bin/activate"
+            cd "$APP"
+            npm install --omit=dev --no-audit --no-fund
+            mkdir -p tmp && touch tmp/restart.txt
+          '
