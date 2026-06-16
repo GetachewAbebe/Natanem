@@ -1,17 +1,25 @@
-name: Deploy to cPanel
+name: Build & publish for cPanel
+
+# Builds the site on GitHub (Linux — correct native binaries) and publishes the
+# ready-to-run bundle to the `production` branch. The cPanel server pulls that
+# branch via cron, so deployment uses only OUTBOUND connections from the server
+# — the host firewall (which blocks inbound SSH from datacenter IPs) is never
+# in the path.
 
 on:
   push:
     branches: [main]
-  workflow_dispatch: # allows manual deploys from the Actions tab
+  workflow_dispatch:
 
-# Never run two deploys at once; a new push waits for the current deploy.
+permissions:
+  contents: write
+
 concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  group: build-publish
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -33,9 +41,8 @@ jobs:
         run: npm run build
         env:
           STANDALONE: "1"
-          # Build-time placeholders only. The real values are set as
-          # environment variables in cPanel's "Setup Node.js App" and are
-          # read at runtime — they are never baked into the bundle.
+          # Build-time placeholders only — real values live in cPanel's
+          # "Setup Node.js App" environment and are read at runtime.
           PAYLOAD_SECRET: build-time-placeholder
           DATABASE_URI: file:./payload.db
 
@@ -43,90 +50,22 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r .next/standalone/. deploy/
-          # cPanel/CloudLinux manages node_modules as a symlink into its
-          # virtual environment — never ship a real one.
+          # node_modules is managed by cPanel (a symlink into its venv) and
+          # payload.db / media are live server content — never ship them.
           rm -rf deploy/node_modules
           mkdir -p deploy/.next/static deploy/public
           cp -r .next/static/. deploy/.next/static/
           cp -r public/. deploy/public/
           rm -f deploy/payload.db deploy/.env
-
-      - name: Set up SSH
-        env:
-          CPANEL_SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
-          CPANEL_SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
-          CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          # The secret is the base64 of the private key. Decode it, IGNORING
-          # base64's exit code — it can return non-zero on a trailing newline
-          # while still emitting the full, valid key. Validate separately, and
-          # fall back to treating the secret as a raw key if needed.
-          printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
-          chmod 600 ~/.ssh/deploy_key
-          if ! ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
-            printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
-            chmod 600 ~/.ssh/deploy_key
-          fi
-          if ! ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
-            echo "::error::CPANEL_SSH_KEY is not a valid private key."
-            exit 1
-          fi
-          echo "SSH key loaded."
-          # Best effort — the SSH steps also auto-accept the host key.
-          ssh-keyscan -p "$CPANEL_SSH_PORT" "$CPANEL_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Upload to server
-        # The server has no rsync, so stream a tar archive over SSH. Only code
-        # artifacts (.next, public, server.js, package.json) are replaced.
-        # node_modules (a cPanel-managed symlink), payload.db, media/ and tmp/
-        # are never removed or shipped — so live content is always preserved.
-        run: |
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
           rm -rf deploy/media deploy/tmp
-          # Retry to ride out transient firewall timeouts on the runner's IP.
-          n=0
-          until [ "$n" -ge 4 ]; do
-            if $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next public server.js" \
-               && tar czf - -C deploy . | $SSH "tar xzf - -C ~/natanem-web"; then
-              echo "Upload OK"
-              exit 0
-            fi
-            n=$((n+1))
-            echo "Upload attempt $n failed (the server may be briefly blocking this runner IP); retrying in 30s..."
-            sleep 30
-          done
-          echo "::error::Upload failed after retries — just re-run the workflow."
-          exit 1
 
-      - name: Install deps & restart
-        # Ensure the CloudLinux node_modules symlink exists, install production
-        # deps (correct Linux native binaries) into the managed venv, restart.
+      - name: Publish bundle to the production branch
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
-          n=0
-          until [ "$n" -ge 4 ]; do
-            if $SSH '
-              set -e
-              APP="$HOME/natanem-web"
-              VER=$(ls "$HOME/nodevenv/natanem-web/" | head -1)
-              VENV_MODULES="$HOME/nodevenv/natanem-web/$VER/lib/node_modules"
-              if [ ! -L "$APP/node_modules" ]; then
-                rm -rf "$APP/node_modules"
-                mkdir -p "$VENV_MODULES"
-                ln -sfn "$VENV_MODULES" "$APP/node_modules"
-              fi
-              source "$HOME/nodevenv/natanem-web/$VER/bin/activate"
-              cd "$APP"
-              npm install --omit=dev --no-audit --no-fund
-              mkdir -p tmp && touch tmp/restart.txt
-            '; then
-              echo "Dependencies installed and app restarted."
-              exit 0
-            fi
-            n=$((n+1))
-            echo "Restart attempt $n failed; retrying in 30s..."
-            sleep 30
-          done
-          echo "::error::Restart failed after retries — just re-run the workflow."
-          exit 1
+          cd deploy
+          git init -q -b production
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" production
+          echo "Published build to the production branch."
