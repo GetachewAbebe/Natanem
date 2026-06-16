@@ -76,22 +76,21 @@ jobs:
           CPANEL_SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          # The CPANEL_SSH_KEY secret may be stored base64-encoded (single line)
-          # or as the raw private key. Accept either.
-          printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' > /tmp/key_in
-          if base64 -d /tmp/key_in > ~/.ssh/deploy_key 2>/dev/null \
-             && ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
-            echo "Loaded base64-encoded key."
-          else
-            cp /tmp/key_in ~/.ssh/deploy_key
-            echo "Using raw key."
-          fi
-          rm -f /tmp/key_in
+          # The secret is the base64 of the private key. Decode it, IGNORING
+          # base64's exit code — it can return non-zero on a trailing newline
+          # while still emitting the full, valid key. Validate separately, and
+          # fall back to treating the secret as a raw key if needed.
+          printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' | base64 -d > ~/.ssh/deploy_key 2>/dev/null || true
           chmod 600 ~/.ssh/deploy_key
           if ! ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
-            echo "::error::CPANEL_SSH_KEY is not a valid private key (tried base64 and raw). Re-add the secret."
+            printf '%s' "$CPANEL_SSH_KEY" | tr -d '\r' > ~/.ssh/deploy_key
+            chmod 600 ~/.ssh/deploy_key
+          fi
+          if ! ssh-keygen -y -f ~/.ssh/deploy_key < /dev/null > /dev/null 2>&1; then
+            echo "::error::CPANEL_SSH_KEY is not a valid private key."
             exit 1
           fi
+          echo "SSH key loaded."
           # Best effort — the SSH steps also auto-accept the host key.
           ssh-keyscan -p "$CPANEL_SSH_PORT" "$CPANEL_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
