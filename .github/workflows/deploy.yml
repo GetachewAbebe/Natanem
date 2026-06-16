@@ -23,24 +23,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      # TEMPORARY diagnostic — prints the decoded key's structure (format
-      # markers only, never the secret body) and the real ssh-keygen error.
-      - name: Diagnose secret
-        env:
-          K: ${{ secrets.CPANEL_SSH_KEY }}
-        run: |
-          echo "secret raw length: ${#K}"
-          printf '%s' "$K" | tr -d '\r' | base64 -d > /tmp/dk 2>/tmp/e || true
-          echo "base64 -d stderr: [$(cat /tmp/e)]"
-          echo "decoded byte count: $(wc -c < /tmp/dk)"
-          echo "decoded first line: [$(head -1 /tmp/dk)]"
-          echo "decoded last line:  [$(tail -1 /tmp/dk)]"
-          echo "carriage-returns in decoded key: $(grep -c $'\r' /tmp/dk || true)"
-          echo "last decoded char: [$(tail -c1 /tmp/dk | od -An -c | tr -d ' ')]"
-          chmod 600 /tmp/dk
-          echo "--- ssh-keygen -y output: ---"
-          ssh-keygen -y -f /tmp/dk < /dev/null 2>&1 | head -4 || true
-
       - name: Install dependencies
         run: npm ci
 
@@ -100,28 +82,51 @@ jobs:
         # node_modules (a cPanel-managed symlink), payload.db, media/ and tmp/
         # are never removed or shipped — so live content is always preserved.
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
           rm -rf deploy/media deploy/tmp
-          $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next public server.js"
-          tar czf - -C deploy . | $SSH "tar xzf - -C ~/natanem-web"
+          # Retry to ride out transient firewall timeouts on the runner's IP.
+          n=0
+          until [ "$n" -ge 4 ]; do
+            if $SSH "mkdir -p ~/natanem-web && cd ~/natanem-web && rm -rf .next public server.js" \
+               && tar czf - -C deploy . | $SSH "tar xzf - -C ~/natanem-web"; then
+              echo "Upload OK"
+              exit 0
+            fi
+            n=$((n+1))
+            echo "Upload attempt $n failed (the server may be briefly blocking this runner IP); retrying in 30s..."
+            sleep 30
+          done
+          echo "::error::Upload failed after retries — just re-run the workflow."
+          exit 1
 
       - name: Install deps & restart
         # Ensure the CloudLinux node_modules symlink exists, install production
         # deps (correct Linux native binaries) into the managed venv, restart.
         run: |
-          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
-          $SSH '
-            set -e
-            APP="$HOME/natanem-web"
-            VER=$(ls "$HOME/nodevenv/natanem-web/" | head -1)
-            VENV_MODULES="$HOME/nodevenv/natanem-web/$VER/lib/node_modules"
-            if [ ! -L "$APP/node_modules" ]; then
-              rm -rf "$APP/node_modules"
-              mkdir -p "$VENV_MODULES"
-              ln -sfn "$VENV_MODULES" "$APP/node_modules"
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 -p ${{ secrets.CPANEL_SSH_PORT }} ${{ secrets.CPANEL_SSH_USER }}@${{ secrets.CPANEL_SSH_HOST }}"
+          n=0
+          until [ "$n" -ge 4 ]; do
+            if $SSH '
+              set -e
+              APP="$HOME/natanem-web"
+              VER=$(ls "$HOME/nodevenv/natanem-web/" | head -1)
+              VENV_MODULES="$HOME/nodevenv/natanem-web/$VER/lib/node_modules"
+              if [ ! -L "$APP/node_modules" ]; then
+                rm -rf "$APP/node_modules"
+                mkdir -p "$VENV_MODULES"
+                ln -sfn "$VENV_MODULES" "$APP/node_modules"
+              fi
+              source "$HOME/nodevenv/natanem-web/$VER/bin/activate"
+              cd "$APP"
+              npm install --omit=dev --no-audit --no-fund
+              mkdir -p tmp && touch tmp/restart.txt
+            '; then
+              echo "Dependencies installed and app restarted."
+              exit 0
             fi
-            source "$HOME/nodevenv/natanem-web/$VER/bin/activate"
-            cd "$APP"
-            npm install --omit=dev --no-audit --no-fund
-            mkdir -p tmp && touch tmp/restart.txt
-          '
+            n=$((n+1))
+            echo "Restart attempt $n failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "::error::Restart failed after retries — just re-run the workflow."
+          exit 1
