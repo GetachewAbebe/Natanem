@@ -44,3 +44,6 @@ next-env.d.ts
 /payload.db
 /payload.db-*
 /media
+
+# local deploy bundle (regenerated each deploy)
+/deploy/
