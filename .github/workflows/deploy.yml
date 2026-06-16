@@ -23,21 +23,23 @@ jobs:
           node-version: 22
           cache: npm
 
-      # TEMPORARY diagnostic — prints only the secret's length and format
-      # category (never the key itself). Remove once the secret is confirmed.
+      # TEMPORARY diagnostic — prints the decoded key's structure (format
+      # markers only, never the secret body) and the real ssh-keygen error.
       - name: Diagnose secret
         env:
           K: ${{ secrets.CPANEL_SSH_KEY }}
         run: |
           echo "secret raw length: ${#K}"
-          case "$K" in
-            b3BlbnNz*) echo "format: base64 of an OpenSSH key (expected) - GOOD" ;;
-            "-----BEGIN"*) echo "format: raw PEM key" ;;
-            "") echo "format: EMPTY — the workflow is reading a different/empty secret (scope issue)" ;;
-            *) echo "format: unexpected (neither base64-magic nor PEM header)" ;;
-          esac
-          DEC=$(printf '%s' "$K" | tr -d '\r\n' | base64 -d 2>/dev/null | wc -c)
-          echo "base64-decoded byte count: $DEC (a valid key decodes to ~3381)"
+          printf '%s' "$K" | tr -d '\r' | base64 -d > /tmp/dk 2>/tmp/e || true
+          echo "base64 -d stderr: [$(cat /tmp/e)]"
+          echo "decoded byte count: $(wc -c < /tmp/dk)"
+          echo "decoded first line: [$(head -1 /tmp/dk)]"
+          echo "decoded last line:  [$(tail -1 /tmp/dk)]"
+          echo "carriage-returns in decoded key: $(grep -c $'\r' /tmp/dk || true)"
+          echo "last decoded char: [$(tail -c1 /tmp/dk | od -An -c | tr -d ' ')]"
+          chmod 600 /tmp/dk
+          echo "--- ssh-keygen -y output: ---"
+          ssh-keygen -y -f /tmp/dk < /dev/null 2>&1 | head -4 || true
 
       - name: Install dependencies
         run: npm ci
